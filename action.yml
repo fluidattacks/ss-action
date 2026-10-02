@@ -23,6 +23,21 @@ inputs:
       and on pull requests.
     required: false
     default: ''
+  group:
+    description: >
+      Fluid Attacks group to authenticate the scan as (passed as --group).
+      Required for authentication. With OpenID Connect, grant the job
+      "permissions: id-token: write" and define a trust for the repository.
+      When empty, or when credentials are unavailable, the scan runs
+      unauthenticated.
+    required: false
+    default: ''
+  api_token:
+    description: >
+      Long-lived Group token, used when OIDC is not an option. Pass it from a
+      secret. Takes precedence over OIDC. Ignored without the "group" input.
+    required: false
+    default: ''
 
 outputs:
   sarif_file:
@@ -48,7 +63,7 @@ runs:
     - name: Get changed files
       if: steps.resolve.outputs.mode == 'diff'
       id: changed
-      uses: tj-actions/changed-files@v46
+      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96
       with:
         base_sha: ${{ steps.resolve.outputs.base_sha }}
         separator: "\n"
@@ -63,3 +78,5 @@ runs:
         INPUT_MODE: ${{ steps.resolve.outputs.mode }}
         CHANGED_FILES: ${{ steps.changed.outputs.all_changed_files }}
         USER_CONFIG_FILE: ${{ steps.resolve.outputs.config_file }}
+        FLUID_GROUP: ${{ inputs.group }}
+        INTEGRATES_API_TOKEN: ${{ inputs.api_token }}

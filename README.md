@@ -1,7 +1,7 @@
 # Fluid Attacks SS
 
 Free, open-source action to search for hardcoded secrets on your GitHub repositories.
-No account, API key, or registration required.
+No account, API key, or registration required to run the scan. Authentication is optional; see [Authentication](#authentication).
 
 ## Quick Start (2 minutes)
 
@@ -54,7 +54,44 @@ Commit and push. The scan will run automatically on the next push or pull reques
 - A GitHub repository (public or private).
 - GitHub Actions enabled on the repository.
 - A **Linux runner** (`ubuntu-latest` or equivalent) — the action requires Docker, which is only available on Linux-hosted runners.
-- No account, token, or API key is needed. The action is 100% open source.
+- No account, token, or API key is needed to run the scan. The action is 100% open source. Authentication is optional; see [Authentication](#authentication).
+
+## Authentication
+
+Authenticating attributes the run to your Fluid Attacks group and applies the group's platform policy. Set the `group` input and supply credentials in one of two ways.
+
+### OpenID Connect (recommended)
+
+No secret to store. Grant the job `id-token: write`:
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: fluidattacks/ss-action@<version>
+        with:
+          group: my-group
+```
+
+In Fluid Attacks, add a trust for issuer `https://token.actions.githubusercontent.com` with the bound claim `repository` = `my-org/my-repo` and enable it for the group. See the [OIDC federation guide](https://docs.fluidattacks.com/find-fix/use-cli/authentication/oidc-federation).
+
+### Group token
+
+```yaml
+- uses: fluidattacks/ss-action@<version>
+  with:
+    group: my-group
+    api_token: ${{ secrets.FLUID_GROUP_TOKEN }}
+```
+
+The token takes precedence over OIDC. `api_token` is ignored without `group`.
+
+Authentication is best-effort: if `group` is invalid or no credentials are available (for example, pull requests from forks get neither `id-token` nor secrets), the action logs a warning and runs the scan unauthenticated.
 
 ## How it works
 
