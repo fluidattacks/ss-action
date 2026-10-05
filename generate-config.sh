@@ -50,7 +50,6 @@ with open('${CONFIG_FILE}', 'w') as f:
 
 # Authentication is best-effort: any problem falls back to an unauthenticated scan.
 build_auth_args() {
-  DOCKER_ENV=()
   SCAN_ARGS=()
 
   if [[ -z "${FLUID_GROUP:-}" ]]; then
@@ -66,10 +65,8 @@ build_auth_args() {
   fi
 
   if [[ -n "${INTEGRATES_API_TOKEN:-}" ]]; then
-    DOCKER_ENV+=(-e INTEGRATES_API_TOKEN)
     echo "Authenticating group '${FLUID_GROUP}' with a Group token"
   elif [[ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" && -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
-    DOCKER_ENV+=(-e ACTIONS_ID_TOKEN_REQUEST_URL -e ACTIONS_ID_TOKEN_REQUEST_TOKEN)
     echo "Authenticating group '${FLUID_GROUP}' with OIDC"
   else
     echo "::warning::'group' is set but no credentials are available (grant 'permissions: id-token: write' or provide 'api_token'; fork pull requests get neither). Running unauthenticated."
@@ -86,12 +83,8 @@ run_scan() {
   echo "::endgroup::"
 
   local exit_code=0
-  docker run --rm \
-    ${DOCKER_ENV[@]+"${DOCKER_ENV[@]}"} \
-    -v "${GITHUB_WORKSPACE}:/src" \
-    -v "${CONFIG_FILE}:${CONFIG_FILE}:ro" \
-    "ghcr.io/fluidattacks/ss:latest" \
-    ss scan ${SCAN_ARGS[@]+"${SCAN_ARGS[@]}"} --config "${CONFIG_FILE}" || exit_code=$?
+  # Run from the workspace so include paths and the SARIF path resolve against it
+  (cd "${GITHUB_WORKSPACE}" && ss scan ${SCAN_ARGS[@]+"${SCAN_ARGS[@]}"} --config "${CONFIG_FILE}") || exit_code=$?
 
   if [[ ${exit_code} -eq 0 ]]; then
     echo "vulnerabilities_found=false" >> "${GITHUB_OUTPUT}"

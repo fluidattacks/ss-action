@@ -53,7 +53,7 @@ Commit and push. The scan will run automatically on the next push or pull reques
 
 - A GitHub repository (public or private).
 - GitHub Actions enabled on the repository.
-- A **Linux runner** (`ubuntu-latest` or equivalent) — the action requires Docker, which is only available on Linux-hosted runners.
+- A **Linux (x86_64 or aarch64) or macOS (Apple Silicon) runner**. The action installs the `ss` binary; Windows and Intel Mac runners are not supported.
 - No account, token, or API key is needed to run the scan. The action is 100% open source. Authentication is optional; see [Authentication](#authentication).
 
 ## Authentication

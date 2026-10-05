@@ -68,6 +68,10 @@ runs:
         base_sha: ${{ steps.resolve.outputs.base_sha }}
         separator: "\n"
 
+    - name: Install ss
+      shell: bash
+      run: bash "${{ github.action_path }}/install-ss.sh"
+
     - name: Run scan
       id: scan
       shell: bash
