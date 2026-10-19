@@ -19,7 +19,7 @@ import yaml, os
 with open(os.environ['USER_CONFIG_FILE']) as f:
     cfg = yaml.safe_load(f) or {}
 
-cfg['namespace'] = os.environ['GITHUB_REPOSITORY']
+cfg['namespace'] = os.environ['GITHUB_REPOSITORY'].split('/', 1)[-1]
 if os.environ['INPUT_MODE'] == 'diff':
     cfg['ss'] = cfg.get('ss') or {}
     cfg['ss']['include'] = os.environ['CHANGED_FILES'].splitlines()
@@ -32,7 +32,7 @@ with open('${CONFIG_FILE}', 'w') as f:
 import yaml, os
 
 cfg = {}
-cfg['namespace'] = os.environ['GITHUB_REPOSITORY']
+cfg['namespace'] = os.environ['GITHUB_REPOSITORY'].split('/', 1)[-1]
 cfg['ss'] = {
     'include': os.environ['CHANGED_FILES'].splitlines() if os.environ['INPUT_MODE'] == 'diff'
                else ['.'],
