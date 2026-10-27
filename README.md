@@ -24,15 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Required for differential scanning (default mode).
-          # Can be omitted if scanner_mode: full is set.
+          # Only required for differential scanning (scanner_mode: diff).
+          # Can be omitted in the default full mode.
           fetch-depth: 0
 
       - uses: fluidattacks/ss-action@<version>
         id: scan
 ```
 
-Replace `<version>` with the latest release tag. Without a configuration file, the action scans the entire repository and writes results to `.fluidattacks-secret-scan-results.sarif`.
+Replace `<version>` with the latest release tag. Without a configuration file, the action scans the entire repository and writes results to `.fluidattacks-ss-results.sarif`.
 
 ### 2. (Optional) Add a configuration file
 
@@ -99,27 +99,30 @@ Authentication is best-effort: if `group` is invalid or no credentials are avail
 
 The action automatically detects your repository's default branch by running `git remote show origin`. This means it works with any branch name — `main`, `master`, `trunk`, `develop`, or whatever your team uses.
 
-### Scan types
+### Scan modes
 
-The action prefers differential scanning whenever a base is available, falling back to a full scan only when there is nothing to compare against:
+By default, the action performs a **full scan**: it analyzes the entire repository on every run, regardless of the event or branch.
+
+You can switch to a differential scan with `scanner_mode: diff` — see [Action inputs](#action-inputs). In diff mode:
 
 | Trigger | Scan type | Base for comparison |
 |---|---|---|
-| Push to any branch | Differential scan | Commit before the push (`github.event.before`) |
 | Pull request | Differential scan | PR base branch |
-| Scheduled / manual trigger | Full scan | — |
+| Push to the default branch | Differential scan | Commit before the push (`github.event.before`) |
+| Push to any other branch | Differential scan | Default branch |
+| Any other event (scheduled, manual, ...) | Full scan | — |
 
-You can force a full scan on every run with `scanner_mode: full` — see [Action inputs](#action-inputs).
+If no base commit is available (for example, the first push of a new branch), the action falls back to a full scan.
 
 ### Why `fetch-depth: 0`?
 
-The `actions/checkout` step uses `fetch-depth: 0` to download the full git history. This is required for differential scans: the action needs it to resolve the base commit and to detect your default branch via `git remote show origin`.
+Full scan mode skips all git comparisons, so the default shallow checkout is sufficient.
 
-If you force `scanner_mode: full`, the action skips all git comparisons entirely, so a default shallow checkout is sufficient — `fetch-depth: 0` is not needed.
+You only need `fetch-depth: 0` if you set `scanner_mode: diff`: the action needs the full git history to resolve the base commit and to detect your default branch via `git remote show origin`.
 
 ## Viewing results
 
-After the workflow runs, results are written to the path configured in `output.file_path`, or to `.fluidattacks-secret-scan-results.sarif` when no configuration file is provided.
+After the workflow runs, results are written to the path configured in `output.file_path`, or to `.fluidattacks-ss-results.sarif` when no configuration file is provided.
 
 ### SARIF file
 
@@ -141,7 +144,7 @@ You can upload the SARIF file to GitHub's Security tab so findings appear as **C
 
 ## Configuration
 
-When `scan_config_path` is provided, the action uses that file exclusively. When omitted, the action runs with built-in defaults: scans the entire repository and writes results to `.fluidattacks-secret-scan-results.sarif`.
+When `scan_config_path` is provided, the action uses that file exclusively. When omitted, the action runs with built-in defaults: scans the entire repository and writes results to `.fluidattacks-ss-results.sarif`.
 
 Only the `ss` and `output` keys are used by this action.
 
@@ -153,7 +156,7 @@ ss:
     - tests/     # paths to skip
 
 output:
-  file_path: .fluidattacks-secret-scan-results.sarif
+  file_path: .fluidattacks-ss-results.sarif
   format: SARIF
 ```
 
@@ -161,8 +164,8 @@ output:
 
 A list of paths (files or directories) to scan.
 
-- **Full scan**: uses this list, defaulting to `.` (entire repository) if not set.
-- **Differential scan**: always uses the list of changed files, regardless of this setting.
+- **Full scan** (default): uses this list, defaulting to `.` (entire repository) if not set.
+- **Differential scan** (`scanner_mode: diff`): always uses the list of changed files, regardless of this setting.
 
 ### `ss.exclude`
 
@@ -174,7 +177,7 @@ Controls the results file written to the repository workspace.
 
 | Field | Default | Description |
 |---|---|---|
-| `file_path` | `.fluidattacks-secret-scan-results.sarif` | Path to the results file |
+| `file_path` | `.fluidattacks-ss-results.sarif` | Path to the results file |
 | `format` | `SARIF` | Output format (`SARIF` or `CSV`) |
 
 ## Action inputs
@@ -182,7 +185,7 @@ Controls the results file written to the repository workspace.
 | Input | Required | Default | Description |
 |---|---|---|---|
 | `scan_config_path` | No | — | Path to the YAML configuration file, relative to the repository root. When omitted, the action runs with built-in defaults. The job fails if the file does not exist at the given path. |
-| `scanner_mode` | No | _(auto)_ | Override the scan mode. `full` forces a full repository scan. If omitted, the mode is determined automatically based on the event and branch. |
+| `scanner_mode` | No | `full` | Scan mode. `full` scans the entire repository (default). `diff` scans only changed files versus the base branch or PR base. |
 
 ### `scan_config_path`
 
@@ -197,15 +200,21 @@ Point the action at your configuration file:
 
 The path is relative to the repository root. The job fails immediately if the file does not exist.
 
-### `scanner_mode: full`
+### `scanner_mode: diff`
 
-Forces a full repository scan regardless of the event. Useful for scheduled audits or when you want every run to cover the entire codebase.
+Scans only the files changed relative to the base (see [Scan modes](#scan-modes)). Requires `fetch-depth: 0` in the checkout step so the action can compare git history.
+
+Diff mode is only active on `push` and `pull_request` events. For any other event (e.g. `schedule`, `workflow_dispatch`), the action automatically falls back to a full scan.
 
 ```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
+
 - uses: fluidattacks/ss-action@<version>
   id: scan
   with:
-    scanner_mode: full
+    scanner_mode: diff
 ```
 
 ## Action outputs
@@ -252,7 +261,7 @@ Make sure the "Upload SARIF" step is included in your workflow and uses `if: alw
 
 ### The differential scan analyzes all files instead of just changes
 
-Verify that `fetch-depth: 0` is set in the `actions/checkout` step. Without full git history, the action cannot determine which files changed.
+Verify that `fetch-depth: 0` is set in the `actions/checkout` step and that `scanner_mode: diff` is configured. Without full git history, the action cannot determine which files changed.
 
 ### The action doesn't detect my default branch
 

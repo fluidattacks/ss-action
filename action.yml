@@ -16,11 +16,9 @@ inputs:
     default: ''
   scanner_mode:
     description: >
-      Override the scan mode. Use "diff" to always run a differential scan
-      (changed files only) or "full" to always scan the entire repository.
-      If omitted, the mode is determined automatically: full scan on pushes
-      to the default branch, differential scan on pushes to other branches
-      and on pull requests.
+      Scan mode. "full" (default) scans the entire repository on every run.
+      "diff" scans only changed files versus the base branch or PR base —
+      requires fetch-depth: 0 in the checkout step.
     required: false
     default: ''
   group:
