@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG_FILE="/tmp/secret-scanner-config.yaml"
+CONFIG_FILE="/tmp/ss-config.yaml"
 
 check_changed_files() {
   if [[ ${INPUT_MODE} == "diff" && -z "${CHANGED_FILES}" ]]; then
@@ -19,7 +19,8 @@ import yaml, os
 with open(os.environ['USER_CONFIG_FILE']) as f:
     cfg = yaml.safe_load(f) or {}
 
-cfg['namespace'] = os.environ['GITHUB_REPOSITORY'].split('/', 1)[-1]
+if not cfg.get('namespace'):
+    cfg['namespace'] = os.environ['GITHUB_REPOSITORY'].split('/', 1)[-1]
 if os.environ['INPUT_MODE'] == 'diff':
     cfg['ss'] = cfg.get('ss') or {}
     cfg['ss']['include'] = os.environ['CHANGED_FILES'].splitlines()
@@ -39,7 +40,7 @@ cfg['ss'] = {
 }
 cfg['output'] = {
     'format': 'SARIF',
-    'file_path': '.fluidattacks-secret-scan-results.sarif',
+    'file_path': '.fluidattacks-ss-results.sarif',
 }
 
 with open('${CONFIG_FILE}', 'w') as f:
