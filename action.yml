@@ -24,7 +24,8 @@ inputs:
   group:
     description: >
       Fluid Attacks group to authenticate the scan as (passed as --group).
-      Required for authentication. With OpenID Connect, grant the job
+      Required only for OpenID Connect; not needed with "api_token", which
+      already identifies the group. With OpenID Connect, grant the job
       "permissions: id-token: write" and define a trust for the repository.
       When empty, or when credentials are unavailable, the scan runs
       unauthenticated.
@@ -33,7 +34,7 @@ inputs:
   api_token:
     description: >
       Long-lived Group token, used when OIDC is not an option. Pass it from a
-      secret. Takes precedence over OIDC. Ignored without the "group" input.
+      secret. Takes precedence over OIDC. Does not require the "group" input.
     required: false
     default: ''
 
@@ -74,9 +75,10 @@ runs:
       id: scan
       shell: bash
       run: |
-        echo "Current branch: ${{ github.head_ref || github.ref_name }}"
+        echo "Current branch: ${CURRENT_BRANCH}"
         bash "${{ github.action_path }}/generate-config.sh"
       env:
+        CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }}
         INPUT_MODE: ${{ steps.resolve.outputs.mode }}
         CHANGED_FILES: ${{ steps.changed.outputs.all_changed_files }}
         USER_CONFIG_FILE: ${{ steps.resolve.outputs.config_file }}

@@ -50,13 +50,22 @@ with open('${CONFIG_FILE}', 'w') as f:
 }
 
 # Authentication is best-effort: any problem falls back to an unauthenticated scan.
+# A Group token already identifies the group, so "group" is only needed for OIDC.
 build_auth_args() {
   SCAN_ARGS=()
 
+  if [[ -n "${INTEGRATES_API_TOKEN:-}" ]]; then
+    echo "Authenticating with a Group token"
+    return 0
+  fi
+
+  if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
+    echo "::warning::No credentials available (grant 'permissions: id-token: write' or provide 'api_token'; fork pull requests get neither). Running unauthenticated."
+    return 0
+  fi
+
   if [[ -z "${FLUID_GROUP:-}" ]]; then
-    if [[ -n "${INTEGRATES_API_TOKEN:-}" ]]; then
-      echo "::warning::'api_token' ignored because 'group' is not set. Running unauthenticated."
-    fi
+    echo "::warning::'group' is required for OIDC authentication. Running unauthenticated."
     return 0
   fi
 
@@ -65,15 +74,7 @@ build_auth_args() {
     return 0
   fi
 
-  if [[ -n "${INTEGRATES_API_TOKEN:-}" ]]; then
-    echo "Authenticating group '${FLUID_GROUP}' with a Group token"
-  elif [[ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" && -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
-    echo "Authenticating group '${FLUID_GROUP}' with OIDC"
-  else
-    echo "::warning::'group' is set but no credentials are available (grant 'permissions: id-token: write' or provide 'api_token'; fork pull requests get neither). Running unauthenticated."
-    return 0
-  fi
-
+  echo "Authenticating group '${FLUID_GROUP}' with OIDC"
   SCAN_ARGS+=(--group "${FLUID_GROUP}")
 }
 

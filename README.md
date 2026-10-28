@@ -58,11 +58,11 @@ Commit and push. The scan will run automatically on the next push or pull reques
 
 ## Authentication
 
-Authenticating attributes the run to your Fluid Attacks group and applies the group's platform policy. Set the `group` input and supply credentials in one of two ways.
+Authenticating attributes the run to your Fluid Attacks group and applies the group's platform policy. Supply credentials in one of two ways.
 
 ### OpenID Connect (recommended)
 
-No secret to store. Grant the job `id-token: write`:
+No secret to store. Set the `group` input (required for OIDC) and grant the job `id-token: write`:
 
 ```yaml
 permissions:
@@ -85,13 +85,12 @@ In Fluid Attacks, add a trust for issuer `https://token.actions.githubuserconten
 ```yaml
 - uses: fluidattacks/ss-action@<version>
   with:
-    group: my-group
     api_token: ${{ secrets.FLUID_GROUP_TOKEN }}
 ```
 
-The token takes precedence over OIDC. `api_token` is ignored without `group`.
+The token identifies the group by itself, so the `group` input is not needed. It takes precedence over OIDC.
 
-Authentication is best-effort: if `group` is invalid or no credentials are available (for example, pull requests from forks get neither `id-token` nor secrets), the action logs a warning and runs the scan unauthenticated.
+Authentication is best-effort: if `group` is missing or invalid for OIDC or no credentials are available (for example, pull requests from forks get neither `id-token` nor secrets), the action logs a warning and runs the scan unauthenticated.
 
 ## How it works
 
