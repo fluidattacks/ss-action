@@ -27,8 +27,7 @@ inputs:
       Required only for OpenID Connect; not needed with "api_token", which
       already identifies the group. With OpenID Connect, grant the job
       "permissions: id-token: write" and define a trust for the repository.
-      When empty, or when credentials are unavailable, the scan runs
-      unauthenticated.
+      When credentials are unavailable, the scan runs unauthenticated.
     required: false
     default: ''
   api_token:
@@ -37,50 +36,31 @@ inputs:
       secret. Takes precedence over OIDC. Does not require the "group" input.
     required: false
     default: ''
+  strict:
+    description: >
+      Break the build when vulnerabilities are found. On authenticated runs the
+      platform's minimum CVSS score applies, otherwise any vulnerability
+      breaks. Overrides "strict" in the config file. When empty, the config
+      file decides.
+    required: false
+    default: ''
+  strictness_threshold:
+    description: >
+      Break the build only for vulnerabilities at or above this severity: low,
+      medium, high or critical. Combined with the platform severity policy,
+      the strictest of the two applies. Overrides the config file. When empty,
+      the config file decides.
+    required: false
+    default: ''
 
 outputs:
+  skip:
+    description: 'Whether the scan was skipped because no files changed (true/false)'
   sarif_file:
     description: 'Path to SARIF results file (if SARIF format selected)'
-    value: ${{ steps.scan.outputs.sarif_file }}
   vulnerabilities_found:
     description: 'Whether vulnerabilities were found (true/false)'
-    value: ${{ steps.scan.outputs.vulnerabilities_found }}
 
 runs:
-  using: 'composite'
-  steps:
-    - name: Resolve config and mode
-      id: resolve
-      shell: bash
-      run: bash "${{ github.action_path }}/resolve-mode.sh"
-      env:
-        SCAN_CONFIG_PATH: ${{ inputs.scan_config_path }}
-        SCANNER_MODE: ${{ inputs.scanner_mode }}
-        PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        GITHUB_BEFORE: ${{ github.event.before }}
-
-    - name: Get changed files
-      if: steps.resolve.outputs.mode == 'diff'
-      id: changed
-      uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96
-      with:
-        base_sha: ${{ steps.resolve.outputs.base_sha }}
-        separator: "\n"
-
-    - name: Install ss
-      shell: bash
-      run: bash "${{ github.action_path }}/install-ss.sh"
-
-    - name: Run scan
-      id: scan
-      shell: bash
-      run: |
-        echo "Current branch: ${CURRENT_BRANCH}"
-        bash "${{ github.action_path }}/generate-config.sh"
-      env:
-        CURRENT_BRANCH: ${{ github.head_ref || github.ref_name }}
-        INPUT_MODE: ${{ steps.resolve.outputs.mode }}
-        CHANGED_FILES: ${{ steps.changed.outputs.all_changed_files }}
-        USER_CONFIG_FILE: ${{ steps.resolve.outputs.config_file }}
-        FLUID_GROUP: ${{ inputs.group }}
-        INTEGRATES_API_TOKEN: ${{ inputs.api_token }}
+  using: 'node24'
+  main: 'dist/index.js'
